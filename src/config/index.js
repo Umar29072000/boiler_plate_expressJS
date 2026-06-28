@@ -37,6 +37,17 @@ const config = {
   },
   
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+  
+  redis: {
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    password: process.env.REDIS_PASSWORD || '',
+    enabled: process.env.REDIS_ENABLED !== 'false',
+  },
+  
+  cache: {
+    enabled: process.env.CACHE_ENABLED !== 'false',
+    defaultTTL: parseInt(process.env.CACHE_DEFAULT_TTL) || 300,
+  },
 };
 
 module.exports = config;

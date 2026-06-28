@@ -1,5 +1,6 @@
 const app = require('./src/app');
 const connectDB = require('./src/config/database');
+const { connectRedis, disconnectRedis } = require('./src/config/redis');
 const { logger } = require('./src/utils/logger');
 const config = require('./src/config');
 
@@ -11,6 +12,11 @@ process.on('uncaughtException', (err) => {
 
 // Connect to database
 connectDB();
+
+// Connect to Redis
+connectRedis().catch(err => {
+  logger.error('Redis connection failed, continuing without Redis:', err);
+});
 
 // Start server
 const server = app.listen(config.port, () => {
@@ -28,7 +34,8 @@ process.on('unhandledRejection', (err) => {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received. Shutting down gracefully...');
-  server.close(() => {
+  server.close(async () => {
+    await disconnectRedis();
     logger.info('Process terminated!');
   });
 });
