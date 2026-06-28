@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { generateToken, hashToken, getTokenExpiry } = require('../utils/tokenGenerator');
 
 const userSchema = new mongoose.Schema(
   {
@@ -34,6 +35,14 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationToken: String,
+    emailVerificationExpire: Date,
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
     lastLogin: {
       type: Date,
     },
@@ -58,10 +67,28 @@ userSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Don't return password in JSON response
+// Generate email verification token
+userSchema.methods.generateEmailVerificationToken = function () {
+  const token = generateToken();
+  this.emailVerificationToken = hashToken(token);
+  this.emailVerificationExpire = getTokenExpiry(24); // 24 hours
+  return token;
+};
+
+// Generate password reset token
+userSchema.methods.generatePasswordResetToken = function () {
+  const token = generateToken();
+  this.resetPasswordToken = hashToken(token);
+  this.resetPasswordExpire = getTokenExpiry(0.25); // 15 minutes
+  return token;
+};
+
+// Don't return password and tokens in JSON response
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;
+  delete obj.emailVerificationToken;
+  delete obj.resetPasswordToken;
   return obj;
 };
 
