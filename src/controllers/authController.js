@@ -5,7 +5,6 @@ const authService = require('../services/authService');
 const { sendWelcomeEmail, sendVerificationEmail } = require('../services/emailService');
 const User = require('../models/User');
 const { hashToken } = require('../utils/tokenGenerator');
-const { getIpAddress, sanitizeIp } = require('../utils/ipHelper');
 
 /**
  * @desc    Register user
@@ -13,8 +12,7 @@ const { getIpAddress, sanitizeIp } = require('../utils/ipHelper');
  * @access  Public
  */
 const register = asyncHandler(async (req, res) => {
-  const ipAddress = sanitizeIp(getIpAddress(req));
-  const { user, accessToken, refreshToken } = await authService.registerUser(req.body, ipAddress);
+  const { user, token } = await authService.registerUser(req.body);
   
   // Generate email verification token
   const verificationToken = user.generateEmailVerificationToken();
@@ -28,7 +26,7 @@ const register = asyncHandler(async (req, res) => {
     console.error('Failed to send email:', error);
   }
   
-  sendSuccess(res, 201, { user, accessToken, refreshToken }, 'User registered successfully. Please check your email to verify your account.');
+  sendSuccess(res, 201, { user, token }, 'User registered successfully. Please check your email to verify your account.');
 });
 
 /**
@@ -38,11 +36,10 @@ const register = asyncHandler(async (req, res) => {
  */
 const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-  const ipAddress = sanitizeIp(getIpAddress(req));
   
-  const { user, accessToken, refreshToken } = await authService.loginUser(email, password, ipAddress);
+  const { user, token } = await authService.loginUser(email, password);
   
-  sendSuccess(res, 200, { user, accessToken, refreshToken }, 'Login successful');
+  sendSuccess(res, 200, { user, token }, 'Login successful');
 });
 
 /**

@@ -15,7 +15,6 @@ const config = require('./config');
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
-const tokenRoutes = require('./routes/tokenRoutes');
 
 const app = express();
 
@@ -108,7 +107,6 @@ app.get('/health', async (req, res) => {
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/auth', tokenRoutes);
 app.use('/api/v1/users', userRoutes);
 
 // Welcome route
