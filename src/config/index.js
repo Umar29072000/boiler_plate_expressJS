@@ -12,8 +12,9 @@ const config = {
   },
   
   jwt: {
-    secret: process.env.JWT_SECRET || 'your-secret-key',
-    expire: process.env.JWT_EXPIRE || '7d',
+    accessTokenSecret: process.env.JWT_SECRET || 'your-secret-key',
+    accessTokenExpire: process.env.JWT_ACCESS_EXPIRE || '15m',
+    refreshTokenExpire: process.env.JWT_REFRESH_EXPIRE || '7',
   },
   
   rateLimit: {

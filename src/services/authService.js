@@ -2,20 +2,12 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const ApiError = require('../utils/ApiError');
 const config = require('../config');
-
-/**
- * Generate JWT Token
- */
-const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, config.jwt.secret, {
-    expiresIn: config.jwt.expire,
-  });
-};
+const { generateAccessToken, generateRefreshToken } = require('./tokenService');
 
 /**
  * Register new user
  */
-const registerUser = async (userData) => {
+const registerUser = async (userData, ipAddress) => {
   const { name, email, password } = userData;
   
   // Check if user already exists
@@ -31,16 +23,17 @@ const registerUser = async (userData) => {
     password,
   });
   
-  // Generate token
-  const token = generateToken(user._id);
+  // Generate tokens
+  const accessToken = generateAccessToken(user._id);
+  const refreshToken = await generateRefreshToken(user._id, ipAddress);
   
-  return { user, token };
+  return { user, accessToken, refreshToken };
 };
 
 /**
  * Login user
  */
-const loginUser = async (email, password) => {
+const loginUser = async (email, password, ipAddress) => {
   // Check for user
   const user = await User.findOne({ email }).select('+password');
   
@@ -59,10 +52,11 @@ const loginUser = async (email, password) => {
   user.lastLogin = Date.now();
   await user.save();
   
-  // Generate token
-  const token = generateToken(user._id);
+  // Generate tokens
+  const accessToken = generateAccessToken(user._id);
+  const refreshToken = await generateRefreshToken(user._id, ipAddress);
   
-  return { user, token };
+  return { user, accessToken, refreshToken };
 };
 
 /**
@@ -115,5 +109,4 @@ module.exports = {
   loginUser,
   updateProfile,
   changePassword,
-  generateToken,
 };
