@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
-const User = require('../models/User');
+const User = require('../pkg/model/User.model'); // Updated to new architecture path
 const config = require('../config');
 
 /**

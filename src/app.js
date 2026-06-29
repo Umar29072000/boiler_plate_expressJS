@@ -12,9 +12,21 @@ const { getRedisClient, isConnected } = require('./config/redis');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const config = require('./config');
 
-// Import routes
-const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes');
+// Import routes (old - to be deprecated)
+// const authRoutes = require('./routes/authRoutes'); // Commented out - using new architecture
+// const userRoutes = require('./routes/userRoutes'); // Commented out - using new architecture
+
+// Import new architecture components
+const UserModel = require('./pkg/model/User.model');
+const { NewUserRepository } = require('./internal/repository/user.repository');
+const { NewUserService } = require('./internal/service/user.service');
+const { NewAuthService } = require('./internal/service/auth.service');
+const { InitUserHandler } = require('./internal/rest/user.handler');
+const { InitAuthHandler } = require('./internal/rest/auth.handler');
+const { protect } = require('./middleware/auth');
+
+// Import email service for Auth feature
+const emailService = require('./services/emailService');
 
 const app = express();
 
@@ -63,6 +75,26 @@ app.use(compression());
 // Logging
 app.use(morganMiddleware);
 
+// ============================================================
+// Dependency Injection Setup (Clean Architecture)
+// ============================================================
+
+// Initialize Repositories
+const userRepository = NewUserRepository(UserModel, config.app);
+
+// Initialize Services (inject repositories)
+const userService = NewUserService(userRepository);
+const authService = NewAuthService(userRepository);
+
+// Initialize API Router
+const apiRouter = express.Router();
+
+// Initialize Handlers (inject services and setup routes)
+InitUserHandler(apiRouter, userService, protect);
+InitAuthHandler(apiRouter, authService, userService, emailService, protect);
+
+// ============================================================
+
 // Enhanced health check endpoint
 app.get('/health', async (req, res) => {
   const health = {
@@ -106,8 +138,9 @@ app.get('/health', async (req, res) => {
 });
 
 // API Routes
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/users', userRoutes);
+// app.use('/api/v1/auth', authRoutes); // Deprecated - replaced by new architecture
+app.use('/api/v1', apiRouter); // New Clean Architecture routes (User & Auth features)
+// app.use('/api/v1/users', userRoutes); // Deprecated - replaced by new architecture
 
 // Welcome route
 app.get('/', (req, res) => {
