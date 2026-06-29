@@ -187,10 +187,80 @@ class ChangePasswordRequest {
   }
 }
 
+/**
+ * Forgot Password Request DTO
+ * Used for requesting password reset
+ */
+class ForgotPasswordRequest {
+  constructor(body) {
+    this.email = body.email || '';
+  }
+
+  validate() {
+    const errors = [];
+
+    // Validate email
+    if (!this.email || this.email.trim() === '') {
+      errors.push({ field: 'email', message: 'Email is required' });
+    }
+
+    const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+    if (this.email && !emailRegex.test(this.email)) {
+      errors.push({ field: 'email', message: 'Please provide a valid email' });
+    }
+
+    if (errors.length > 0) {
+      throw { errors };
+    }
+
+    return true;
+  }
+}
+
+/**
+ * Reset Password Request DTO
+ * Used for resetting password with token
+ */
+class ResetPasswordRequest {
+  constructor(params, body) {
+    this.token = params.token || '';
+    this.password = body.password || '';
+  }
+
+  validate() {
+    const errors = [];
+
+    // Validate token
+    if (!this.token || this.token.trim() === '') {
+      errors.push({ field: 'token', message: 'Reset token is required' });
+    }
+
+    // Validate password
+    if (!this.password || this.password.trim() === '') {
+      errors.push({ field: 'password', message: 'Password is required' });
+    }
+
+    if (this.password && this.password.length < 6) {
+      errors.push({
+        field: 'password',
+        message: 'Password must be at least 6 characters',
+      });
+    }
+
+    if (errors.length > 0) {
+      throw { errors };
+    }
+
+    return true;
+  }
+}
+
 module.exports = {
   RegisterRequest,
   LoginRequest,
   VerifyEmailRequest,
   UpdateProfileRequest,
   ChangePasswordRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
 };

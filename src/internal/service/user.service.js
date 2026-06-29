@@ -19,6 +19,10 @@ class IUserService {
     throw new Error('Method not implemented');
   }
 
+  async findByIdWithPassword(ctx, id) {
+    throw new Error('Method not implemented');
+  }
+
   async update(ctx, req) {
     throw new Error('Method not implemented');
   }
@@ -73,6 +77,32 @@ class UserService extends IUserService {
       if (error.message !== 'USER_NOT_FOUND') {
         loggerWithFields({ tag: tag + '02', error: error.message }).error(
           'failed to find user by ID (from user repository)'
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Find user by ID with password field
+   * Used for authentication purposes (e.g., change password)
+   */
+  async findByIdWithPassword(ctx, id) {
+    const tag = 'internal.service.user.findByIdWithPassword.';
+
+    try {
+      const user = await this.userRepository.findByIdWithPassword(ctx, id);
+
+      if (!user) {
+        loggerWithFields({ tag: tag + '01', userId: id }).error('user not found');
+        throw new Error('USER_NOT_FOUND');
+      }
+
+      return user;
+    } catch (error) {
+      if (error.message !== 'USER_NOT_FOUND') {
+        loggerWithFields({ tag: tag + '02', error: error.message }).error(
+          'failed to find user by ID with password (from user repository)'
         );
       }
       throw error;

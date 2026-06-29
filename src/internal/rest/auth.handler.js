@@ -12,6 +12,8 @@ const {
   VerifyEmailRequest,
   UpdateProfileRequest,
   ChangePasswordRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
 } = require('./request/auth.request');
 const { hashToken } = require('../../utils/tokenGenerator');
 
@@ -394,8 +396,8 @@ class AuthHandler {
         );
       }
 
-      // Get user with password
-      const user = await this.userService.findById(req, userId);
+      // Get user with password field (required for password comparison)
+      const user = await this.userService.findByIdWithPassword(req, userId);
 
       if (!user) {
         loggerWithFields({ tag: tag + '03', userId }).error('user not found');
@@ -431,6 +433,152 @@ class AuthHandler {
       );
     }
   }
+
+  /**
+   * Forgot password - send reset email
+   * @route POST /api/v1/auth/forgot-password
+   */
+  async forgotPassword(req, res) {
+    const tag = 'internal.rest.auth.forgotPassword.';
+
+    try {
+      // Parse and validate request
+      const request = new ForgotPasswordRequest(req.body);
+
+      try {
+        request.validate();
+      } catch (validationError) {
+        loggerWithFields({ tag: tag + '01', error: validationError }).error(
+          'invalid validation'
+        );
+        return res.status(400).json(
+          new BaseResponse(400, 'INVALID_VALIDATION', validationError.errors)
+        );
+      }
+
+      // Generate reset token
+      const { user, resetToken } = await this.authService.forgotPassword(
+        req,
+        request.email
+      );
+
+      // Send password reset email
+      if (this.emailService) {
+        try {
+          await this.emailService.sendPasswordResetEmail(user, resetToken);
+        } catch (error) {
+          loggerWithFields({ tag: tag + '02', error: error.message }).error(
+            'failed to send password reset email'
+          );
+
+          // Clear reset token if email fails
+          user.resetPasswordToken = undefined;
+          user.resetPasswordExpire = undefined;
+          await user.save({ validateBeforeSave: false });
+
+          return res.status(500).json(
+            new BaseResponse(500, 'EMAIL_COULD_NOT_BE_SENT', null)
+          );
+        }
+      }
+
+      return res.status(200).json(
+        new BaseResponse(
+          200,
+          'Password reset email sent. Please check your email.',
+          null
+        )
+      );
+    } catch (error) {
+      loggerWithFields({ tag: tag + '03', error: error.message }).error(
+        'failed to process forgot password (from auth service)'
+      );
+
+      if (error.message === 'USER_NOT_FOUND') {
+        return res.status(404).json(
+          new BaseResponse(404, 'USER_NOT_FOUND', null)
+        );
+      }
+
+      return res.status(500).json(
+        new BaseResponse(500, 'INTERNAL_SERVER_ERROR', null)
+      );
+    }
+  }
+
+  /**
+   * Reset password with token
+   * @route POST /api/v1/auth/reset-password/:token
+   */
+  async resetPassword(req, res) {
+    const tag = 'internal.rest.auth.resetPassword.';
+
+    try {
+      // Parse and validate request
+      const request = new ResetPasswordRequest(req.params, req.body);
+
+      try {
+        request.validate();
+      } catch (validationError) {
+        loggerWithFields({ tag: tag + '01', error: validationError }).error(
+          'invalid validation'
+        );
+        return res.status(400).json(
+          new BaseResponse(400, 'INVALID_VALIDATION', validationError.errors)
+        );
+      }
+
+      // Hash the token
+      const hashedToken = hashToken(request.token);
+
+      // Reset password
+      const user = await this.authService.resetPassword(
+        req,
+        hashedToken,
+        request.password
+      );
+
+      // Send password changed confirmation email
+      if (this.emailService) {
+        try {
+          await this.emailService.sendPasswordChangedEmail(user);
+        } catch (error) {
+          loggerWithFields({ tag: tag + '02', error: error.message }).error(
+            'failed to send password changed email'
+          );
+          // Don't fail if confirmation email fails
+        }
+      }
+
+      return res.status(200).json(
+        new BaseResponse(
+          200,
+          'Password reset successful. You can now login with your new password.',
+          null
+        )
+      );
+    } catch (error) {
+      loggerWithFields({ tag: tag + '03', error: error.message }).error(
+        'failed to reset password (from auth service)'
+      );
+
+      if (error.message === 'INVALID_OR_EXPIRED_TOKEN') {
+        return res.status(400).json(
+          new BaseResponse(400, 'INVALID_OR_EXPIRED_TOKEN', null)
+        );
+      }
+
+      if (error.message === 'TOKEN_EXPIRED') {
+        return res.status(400).json(
+          new BaseResponse(400, 'TOKEN_EXPIRED', null)
+        );
+      }
+
+      return res.status(500).json(
+        new BaseResponse(500, 'INTERNAL_SERVER_ERROR', null)
+      );
+    }
+  }
 }
 
 /**
@@ -444,6 +592,8 @@ function InitAuthHandler(router, authService, userService, emailService, authMid
   router.post('/auth/register', handler.register.bind(handler));
   router.post('/auth/login', handler.login.bind(handler));
   router.get('/auth/verify-email/:token', handler.verifyEmail.bind(handler));
+  router.post('/auth/forgot-password', handler.forgotPassword.bind(handler));
+  router.post('/auth/reset-password/:token', handler.resetPassword.bind(handler));
 
   // Protected routes
   router.get('/auth/me', authMiddleware, handler.getMe.bind(handler));

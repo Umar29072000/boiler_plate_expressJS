@@ -29,6 +29,14 @@ class IAuthService {
     throw new Error('Method not implemented');
   }
 
+  async forgotPassword(ctx, email) {
+    throw new Error('Method not implemented');
+  }
+
+  async resetPassword(ctx, token, newPassword) {
+    throw new Error('Method not implemented');
+  }
+
   generateToken(userId) {
     throw new Error('Method not implemented');
   }
@@ -98,8 +106,8 @@ class AuthService extends IAuthService {
     const tag = 'internal.service.auth.login.';
 
     try {
-      // Find user with password field
-      const user = await this.userRepository.findByEmail(ctx, email);
+      // Find user with password field (required for authentication)
+      const user = await this.userRepository.findByEmailWithPassword(ctx, email);
 
       if (!user) {
         loggerWithFields({ tag: tag + '01', email }).error('user not found');
@@ -202,6 +210,79 @@ class AuthService extends IAuthService {
       ) {
         loggerWithFields({ tag: tag + '03', error: error.message }).error(
           'failed to resend verification'
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Forgot password - generate reset token
+   */
+  async forgotPassword(ctx, email) {
+    const tag = 'internal.service.auth.forgotPassword.';
+
+    try {
+      // Find user by email
+      const user = await this.userRepository.findByEmail(ctx, email);
+
+      if (!user) {
+        loggerWithFields({ tag: tag + '01', email }).error('user not found');
+        throw new Error('USER_NOT_FOUND');
+      }
+
+      // Generate reset token
+      const resetToken = user.generatePasswordResetToken();
+      await user.save({ validateBeforeSave: false });
+
+      return { user, resetToken };
+    } catch (error) {
+      if (error.message !== 'USER_NOT_FOUND') {
+        loggerWithFields({ tag: tag + '02', error: error.message }).error(
+          'failed to generate password reset token'
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Reset password with token
+   */
+  async resetPassword(ctx, token, newPassword) {
+    const tag = 'internal.service.auth.resetPassword.';
+
+    try {
+      // Find user with valid reset token
+      const user = await this.userRepository.findByResetToken(ctx, token);
+
+      if (!user) {
+        loggerWithFields({ tag: tag + '01' }).error('invalid or expired token');
+        throw new Error('INVALID_OR_EXPIRED_TOKEN');
+      }
+
+      // Check if token is expired
+      if (user.resetPasswordExpire && user.resetPasswordExpire < Date.now()) {
+        loggerWithFields({ tag: tag + '02', userId: user._id }).error(
+          'reset token expired'
+        );
+        throw new Error('TOKEN_EXPIRED');
+      }
+
+      // Set new password
+      user.password = newPassword;
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save();
+
+      return user;
+    } catch (error) {
+      if (
+        error.message !== 'INVALID_OR_EXPIRED_TOKEN' &&
+        error.message !== 'TOKEN_EXPIRED'
+      ) {
+        loggerWithFields({ tag: tag + '03', error: error.message }).error(
+          'failed to reset password'
         );
       }
       throw error;

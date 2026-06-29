@@ -24,7 +24,15 @@ class IUserRepository {
     throw new Error('Method not implemented');
   }
 
+  async findByEmailWithPassword(ctx, email) {
+    throw new Error('Method not implemented');
+  }
+
   async findById(ctx, id) {
+    throw new Error('Method not implemented');
+  }
+
+  async findByIdWithPassword(ctx, id) {
     throw new Error('Method not implemented');
   }
 
@@ -156,6 +164,24 @@ class UserRepository extends IUserRepository {
   }
 
   /**
+   * Find user by email with password field
+   * Used for authentication purposes
+   */
+  async findByEmailWithPassword(ctx, email) {
+    const tag = 'internal.repository.user.findByEmailWithPassword.';
+
+    try {
+      const user = await this.UserModel.findOne({ email }).select('+password');
+      return user;
+    } catch (error) {
+      loggerWithFields({ tag: tag + '01', error: error.message }).error(
+        'failed to find user by email with password'
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Find user by ID
    */
   async findById(ctx, id) {
@@ -167,6 +193,24 @@ class UserRepository extends IUserRepository {
     } catch (error) {
       loggerWithFields({ tag: tag + '01', error: error.message }).error(
         'failed to find user by ID'
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Find user by ID with password field
+   * Used for authentication purposes (e.g., change password)
+   */
+  async findByIdWithPassword(ctx, id) {
+    const tag = 'internal.repository.user.findByIdWithPassword.';
+
+    try {
+      const user = await this.UserModel.findById(id).select('+password');
+      return user;
+    } catch (error) {
+      loggerWithFields({ tag: tag + '01', error: error.message }).error(
+        'failed to find user by ID with password'
       );
       throw error;
     }
